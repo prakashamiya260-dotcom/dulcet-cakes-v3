@@ -66,7 +66,7 @@
     /* Hero */
     .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 140px 20px 80px; position: relative; overflow: hidden; background: #1a1208; }
     .hero video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-    .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.95) 100%); z-index: 1; }
+    .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.7) 100%); z-index: 1; }
 
     .hero-content {
       position: relative;
@@ -85,12 +85,13 @@
     }
 
     .hero h1 {
+      color: #ffffff;
       font-size: clamp(3rem, 7vw, 8rem);
       font-weight: 900;
       letter-spacing: -2px;
       line-height: 1;
       margin-bottom: 20px;
-      text-shadow: 0 4px 60px rgba(0, 0, 0, 0.9), 0 0 20px rgba(0, 0, 0, 0.6);
+      text-shadow: 0 4px 50px rgba(0, 0, 0, 0.9), 0 0 15px rgba(0, 0, 0, 0.7);
     }
 
     .hero-desc {
@@ -868,10 +869,24 @@
         
         const triggerPlay = () => {
              inactiveVid.play().catch(e => console.log('Autoplay prevented'));
-             inactiveVid.style.opacity = 1;
-             activeVid.style.opacity = 0;
-             activeVideoId = activeVideoId === 1 ? 2 : 1;
-             setTimeout(preloadNextVideo, 500);
+             
+             let swapped = false;
+             const doSwap = () => {
+                 if (swapped) return;
+                 swapped = true;
+                 inactiveVid.removeEventListener('timeupdate', onTimeUpdate);
+                 inactiveVid.style.opacity = 1;
+                 activeVid.style.opacity = 0;
+                 activeVideoId = activeVideoId === 1 ? 2 : 1;
+                 setTimeout(preloadNextVideo, 500);
+             };
+             
+             const onTimeUpdate = () => {
+                 if (inactiveVid.currentTime > 0.05) doSwap();
+             };
+             
+             inactiveVid.addEventListener('timeupdate', onTimeUpdate);
+             setTimeout(doSwap, 500); // Fallback
         };
 
         if (inactiveVid.src.includes(c.video.replace('public/', ''))) {
