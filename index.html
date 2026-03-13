@@ -557,6 +557,20 @@
       font-family: 'Outfit', sans-serif;
       transition: all 0.3s;
       white-space: nowrap;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .flavor-btn .btn-progress {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.15);
+      width: 0%;
+      z-index: 0;
+      pointer-events: none;
+      transition: width 0.1s linear;
     }
 
     .flavor-btn:hover {
@@ -807,8 +821,31 @@
       const menu = document.getElementById('flavorMenu');
       menu.innerHTML = cakes.map((c, i) => {
         if (!c.video) return '';
-        return `<button class="flavor-btn ${i === 0 ? 'active' : ''}" onclick="setHero(${i})">${c.name}</button>`;
+        return `<button class="flavor-btn ${i === 0 ? 'active' : ''}" onclick="setHero(${i})">
+          <span style="position:relative;z-index:1;">${c.name}</span>
+          <div class="btn-progress" id="prog-${i}"></div>
+        </button>`;
       }).join('');
+    }
+
+    function getNextVideoIdx(currentIdx) {
+      let i = currentIdx + 1;
+      while (cakes[i] && !cakes[i].video) i++;
+      if (!cakes[i]) {
+        i = 0;
+        while (cakes[i] && !cakes[i].video) i++;
+      }
+      return i;
+    }
+
+    function preloadNextVideo() {
+      const nextIdx = getNextVideoIdx(activeHero);
+      const nextSrc = cakes[nextIdx].video;
+      const inactiveVid = activeVideoId === 1 ? document.getElementById('heroVideo2') : document.getElementById('heroVideo1');
+      if (inactiveVid && nextSrc && !inactiveVid.src.includes(nextSrc.replace('public/', ''))) {
+        inactiveVid.src = nextSrc;
+        inactiveVid.load();
+      }
     }
 
     function setHero(idx) {
@@ -820,22 +857,33 @@
       document.getElementById('heroWaBtnText').textContent = 'Order on WhatsApp — ' + c.sizes[0].p;
       document.getElementById('heroWaBtn').href = waLink('Hi Dulcet Cakes! 🎂 I\'d like to order a *' + c.name + '* (' + c.sizes[0].p + '). Please confirm availability.');
       document.querySelectorAll('.flavor-btn').forEach((b, i) => b.classList.toggle('active', i === idx));
+      document.querySelectorAll('.btn-progress').forEach(p => p.style.width = '0%');
       
       const v1 = document.getElementById('heroVideo1');
       const v2 = document.getElementById('heroVideo2');
       
       if (c.video) {
-        const currentVid = activeVideoId === 1 ? v1 : v2;
-        const nextVid = activeVideoId === 1 ? v2 : v1;
+        const activeVid = activeVideoId === 1 ? v1 : v2;
+        const inactiveVid = activeVideoId === 1 ? v2 : v1;
         
-        if (!currentVid.src.includes(c.video.replace('public/', ''))) {
-          nextVid.src = c.video;
-          nextVid.onloadeddata = () => {
-             nextVid.play().catch(e => console.log('Autoplay prevented'));
-             nextVid.style.opacity = 1;
-             currentVid.style.opacity = 0;
+        const playNew = () => {
+             inactiveVid.play().catch(e => console.log('Autoplay prevented'));
+             inactiveVid.style.opacity = 1;
+             activeVid.style.opacity = 0;
              activeVideoId = activeVideoId === 1 ? 2 : 1;
-          };
+             setTimeout(preloadNextVideo, 500);
+        };
+
+        if (inactiveVid.src.includes(c.video.replace('public/', ''))) {
+           // Already loaded
+           playNew();
+        } else {
+           inactiveVid.src = c.video;
+           inactiveVid.oncanplay = () => {
+               playNew();
+               inactiveVid.oncanplay = null;
+           };
+           inactiveVid.load();
         }
       }
       
@@ -854,20 +902,35 @@
       params.innerHTML = c.params.map(p => `<span class="param-tag">✓ ${p}</span>`).join('');
     }
 
-    // Auto-cycle hero video when it finishes playing
+    // Auto-cycle hero video when it finishes playing & update progress bar
     document.addEventListener("DOMContentLoaded", () => {
-      const handleEnded = () => {
-        let nextIdx = activeHero + 1;
-        if (!cakes[nextIdx] || !cakes[nextIdx].video) {
-          nextIdx = 0;
-        }
-        setHero(nextIdx);
-      };
-      
       const v1 = document.getElementById('heroVideo1');
       const v2 = document.getElementById('heroVideo2');
-      if (v1) v1.addEventListener('ended', handleEnded);
-      if (v2) v2.addEventListener('ended', handleEnded);
+      
+      const handleEnded = () => {
+        setHero(getNextVideoIdx(activeHero));
+      };
+      
+      const handleTimeUpdate = (e) => {
+        const v = e.target;
+        if ((activeVideoId === 1 && v === v1) || (activeVideoId === 2 && v === v2)) {
+           const prog = document.getElementById('prog-' + activeHero);
+           if (prog && v.duration) {
+               prog.style.width = (v.currentTime / v.duration) * 100 + '%';
+           }
+        }
+      };
+
+      if (v1) {
+          v1.addEventListener('ended', handleEnded);
+          v1.addEventListener('timeupdate', handleTimeUpdate);
+      }
+      if (v2) {
+          v2.addEventListener('ended', handleEnded);
+          v2.addEventListener('timeupdate', handleTimeUpdate);
+      }
+      
+      setTimeout(preloadNextVideo, 1000); // initial preload
     });
 
     function selectSize(idx) { activeSizeIdx = idx; updateBuyNow(); }
