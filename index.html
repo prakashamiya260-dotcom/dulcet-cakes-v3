@@ -66,7 +66,7 @@
     /* Hero */
     .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 140px 20px 80px; position: relative; overflow: hidden; background: #1a1208; }
     .hero video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0; }
-    .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 40%, rgba(0,0,0,0.85) 100%); z-index: 1; }
+    .hero-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, rgba(0,0,0,0.95) 100%); z-index: 1; }
 
     .hero-content {
       position: relative;
@@ -90,7 +90,7 @@
       letter-spacing: -2px;
       line-height: 1;
       margin-bottom: 20px;
-      text-shadow: 0 4px 40px rgba(0, 0, 0, 0.6);
+      text-shadow: 0 4px 60px rgba(0, 0, 0, 0.9), 0 0 20px rgba(0, 0, 0, 0.6);
     }
 
     .hero-desc {
@@ -641,7 +641,7 @@
 
   <!-- Hero -->
   <section class="hero">
-    <video id="heroVideo1" autoplay muted playsinline preload="auto" src="public/videos/hero.mp4" style="background: #1a1208; position: absolute; top:0; left:0; width:100%; height:100%; object-fit: cover; z-index: 1; transition: opacity 1s ease-in-out; opacity: 1;"></video>
+    <video id="heroVideo1" muted playsinline preload="auto" src="public/videos/hero.mp4" style="background: #1a1208; position: absolute; top:0; left:0; width:100%; height:100%; object-fit: cover; z-index: 1; transition: opacity 1s ease-in-out; opacity: 1;"></video>
     <video id="heroVideo2" muted playsinline preload="auto" style="background: transparent; position: absolute; top:0; left:0; width:100%; height:100%; object-fit: cover; z-index: 2; transition: opacity 1s ease-in-out; opacity: 0;"></video>
     <div class="hero-overlay" style="z-index: 3;"></div>
     <div class="hero-content" id="heroContent">
@@ -866,7 +866,7 @@
         const activeVid = activeVideoId === 1 ? v1 : v2;
         const inactiveVid = activeVideoId === 1 ? v2 : v1;
         
-        const playNew = () => {
+        const triggerPlay = () => {
              inactiveVid.play().catch(e => console.log('Autoplay prevented'));
              inactiveVid.style.opacity = 1;
              activeVid.style.opacity = 0;
@@ -875,12 +875,18 @@
         };
 
         if (inactiveVid.src.includes(c.video.replace('public/', ''))) {
-           // Already loaded
-           playNew();
+           if (inactiveVid.readyState >= 3) {
+               triggerPlay();
+           } else {
+               inactiveVid.oncanplay = () => {
+                   triggerPlay();
+                   inactiveVid.oncanplay = null;
+               };
+           }
         } else {
            inactiveVid.src = c.video;
            inactiveVid.oncanplay = () => {
-               playNew();
+               triggerPlay();
                inactiveVid.oncanplay = null;
            };
            inactiveVid.load();
@@ -907,6 +913,8 @@
       const v1 = document.getElementById('heroVideo1');
       const v2 = document.getElementById('heroVideo2');
       
+      if (v1) v1.play().catch(e => console.log('Autoplay prevented'));
+
       const handleEnded = () => {
         setHero(getNextVideoIdx(activeHero));
       };
